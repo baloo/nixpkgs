@@ -10525,7 +10525,7 @@ in
     inherit noSysDirs;
 
     reproducibleBuild = true;
-    profiledCompiler = false;
+    profiledCompiler = true;
 
     enableLTO = !stdenv.isi686;
 

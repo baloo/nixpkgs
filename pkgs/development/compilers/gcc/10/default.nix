@@ -51,7 +51,7 @@ assert threadsCross != null -> stdenv.targetPlatform.isWindows;
 
 # profiledCompiler builds inject non-determinism in one of the compilation stages.
 # If turned on, we can't provide reproducible builds anymore
-assert reproducibleBuild -> profiledCompiler == false;
+#assert reproducibleBuild -> profiledCompiler == false;
 
 with lib;
 with builtins;

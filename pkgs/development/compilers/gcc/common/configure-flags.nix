@@ -148,6 +148,7 @@ let
           )
         )
       }"
+      "--enable-initfini-array"
     ]
 
     ++ (if (enableMultilib || targetPlatform.isAvr)
