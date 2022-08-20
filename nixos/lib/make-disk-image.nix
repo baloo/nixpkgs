@@ -47,6 +47,12 @@
 , # Whether to invoke `switch-to-configuration boot` during image creation
   installBootLoader ? true
 
+, # Whether to output have EFIVARS available in $out/efi-vars.fd and use it during disk creation
+  touchEFIVars ? false
+
+, # OVMF firmware derivation, defaults to `pkgs.OVMF.fd`
+  OVMF ? pkgs.OVMF.fd
+
 , # The root file system type.
   fsType ? "ext4"
 
@@ -87,7 +93,9 @@ assert partitionTableType != "none" -> fsType == "ext4";
 assert lib.all
          (attrs: ((attrs.user  or null) == null)
               == ((attrs.group or null) == null))
-         contents;
+        contents;
+
+# If only Nix store image, then: contents must be empty, configFile must be unset, and we should no install bootloader.
 assert onlyNixStore -> contents == [] && configFile == null && !installBootLoader;
 
 with lib;
@@ -146,6 +154,15 @@ let format' = format; in let
     '';
     none = "";
   }.${partitionTableType};
+
+  # TODO: better infrastructure for EFI firmwares, e.g. support RISC-V.
+  efiPrefix =
+    if pkgs.stdenv.hostPlatform.isx86 then "${OVMF}/FV/OVMF"
+    else if pkgs.stdenv.isAarch64 then "${OVMF}/FV/AAVMF"
+    else throw "No EFI firmware available for platform";
+  efiFirmware = "${efiPrefix}_CODE.fd";
+  efiVarsDefault = "${efiPrefix}_VARS.fd";
+  useEFIBoot = touchEFIVars;
 
   nixpkgs = cleanSource pkgs.path;
 
@@ -368,11 +385,21 @@ let format' = format; in let
     diskImage=$out/${filename}
   '';
 
+  createEFIVars = ''
+    efiVars=$out/efi-vars.fd
+    cp ${efiVarsDefault} $efiVars
+    chmod 0644 $efiVars
+  '';
+
   buildImage = pkgs.vmTools.runInLinuxVM (
     pkgs.runCommand name {
-      preVM = prepareImage;
+      preVM = prepareImage + lib.optionalString touchEFIVars createEFIVars;
       buildInputs = with pkgs; [ util-linux e2fsprogs dosfstools ];
       postVM = moveOrConvertImage + postVM;
+      QEMU_OPTS =
+        concatStringsSep " " (lib.optional useEFIBoot "-drive if=pflash,format=raw,unit=0,readonly=on,file=${efiFirmware}"
+        ++ lib.optional touchEFIVars "-drive if=pflash,format=raw,unit=1,file=$efiVars"
+      );
       memSize = 1024;
     } ''
       export PATH=${binPath}:$PATH
@@ -396,6 +423,8 @@ let format' = format; in let
         mkdir -p /mnt/boot
         mkfs.vfat -n ESP /dev/vda1
         mount /dev/vda1 /mnt/boot
+
+        ${optionalString touchEFIVars "mount -t efivarfs efivarfs /sys/firmware/efi/efivars"}
       ''}
 
       # Install a configuration.nix
