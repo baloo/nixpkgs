@@ -3,7 +3,7 @@
 with pkgs.lib;
 
 {
-  makeEc2Test = { name, image, userData, script, hostname ? "ec2-instance", sshPublicKey ? null, meta ? {} }:
+  makeEc2Test = { name, image, imageFormat ? "qcow2", userData, script, hostname ? "ec2-instance", sshPublicKey ? null, meta ? {} }:
     let
       metaData = pkgs.stdenv.mkDerivation {
         name = "metadata";
@@ -38,6 +38,8 @@ with pkgs.lib;
                 "qcow2",
                 "-o",
                 "backing_file=${image}",
+                "-F",
+                "${imageFormat}",
                 disk_image,
             ]
         )
