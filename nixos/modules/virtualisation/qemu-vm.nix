@@ -107,9 +107,12 @@ let
 
       NIX_DISK_IMAGE=$(readlink -f "''${NIX_DISK_IMAGE:-${config.virtualisation.diskImage}}")
 
+      # -o size=${toString config.virtualisation.diskSize}M
       if ! test -e "$NIX_DISK_IMAGE"; then
-          ${qemu}/bin/qemu-img create -f qcow2 -F qcow2 -b ${storeImage}/nixos.qcow2 "$NIX_DISK_IMAGE" \
-            ${toString config.virtualisation.diskSize}M
+          ${qemu}/bin/qemu-img create \
+          -f qcow2 \
+          -F qcow2 -b ${storeImage}/nixos.qcow2 \
+          "$NIX_DISK_IMAGE"
       fi
 
       # Create a directory for storing temporary data of the running VM.
@@ -906,7 +909,7 @@ in
     in
       mkVMOverride (cfg.fileSystems //
       optionalAttrs cfg.useDefaultFilesystems {
-        "/".device = cfg.bootDevice;
+        "/".device = "${lookupDriveDeviceName "root" cfg.qemu.drives}2";
         "/".fsType = "ext4";
         "/".autoFormat = true;
       } //
