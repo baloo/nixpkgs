@@ -13,8 +13,6 @@ let
     virtualisation.useSecureBoot = true;
     boot.loader.systemd-boot.enable = true;
     boot.loader.efi.canTouchEfiVariables = true;
-    boot.blacklistedKernelModules = [ "bochs_drm" ];
-    boot.kernelParams = [ "nomodeset" "console=tty0" "console=ttyS0,115200" "debug" ];
     environment.systemPackages = [ pkgs.efibootmgr pkgs.sbsigntool pkgs.sbctl ];
   };
 in
@@ -29,7 +27,13 @@ in
       machine.start()
       machine.wait_for_unit("multi-user.target")
 
-      machine.succeed("sbctl status")
+      machine.succeed("sbctl create-keys")
+      machine.succeed("sbctl enroll-keys --yes-this-might-brick-my-machine")
+      machine.shutdown()
+      # Now we cannot reboot because we did not sign our boot files!
+      # machine.sleep(1)
+      # Test for Linux Boot Manager
+      # assert ('Not Found' in machine.get_screen_text())
     '';
   };
 }
