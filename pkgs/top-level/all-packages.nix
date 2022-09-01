@@ -23127,6 +23127,8 @@ with pkgs;
     tpmSupport = true;
   };
 
+  ovmfvartool = callPackage ../applications/virtualization/ovmfvartool { };
+
   seabios = callPackage ../applications/virtualization/seabios { };
 
   vmfs-tools = callPackage ../tools/filesystems/vmfs-tools { };
