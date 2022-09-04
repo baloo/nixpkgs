@@ -31,6 +31,8 @@ in
       machine.succeed("sbctl enroll-keys --yes-this-might-brick-my-machine")
       machine.shutdown()
 
+      machine.dump_efi_vars()
+
       # Now we cannot reboot because we did not sign our boot files!
       machine.start()
       # Test for EDK2 to reject the payload

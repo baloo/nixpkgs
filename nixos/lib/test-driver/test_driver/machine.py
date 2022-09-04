@@ -17,6 +17,7 @@ import threading
 import time
 
 from test_driver.logger import rootlog
+from test_driver.efi import EfiVars
 
 CHAR_TO_KEY = {
     "A": "shift-a",
@@ -185,6 +186,7 @@ class StartCommand:
                 "TMPDIR": str(state_dir),
                 "SHARED_DIR": str(shared_dir),
                 "USE_TMPDIR": "1",
+                "NIX_EFI_VARS": "efi-vars.fd",
             }
         )
         return env
@@ -327,6 +329,8 @@ class Machine:
     last_lines: Queue = Queue()
     callbacks: List[Callable]
 
+    efi_vars: EfiVars
+
     def __repr__(self) -> str:
         return f"<Machine '{self.name}'>"
 
@@ -367,6 +371,8 @@ class Machine:
 
         self.booted = False
         self.connected = False
+
+        self.efi_vars = EfiVars(self.state_dir / "efi-vars.fd", self)
 
     @staticmethod
     def create_startcommand(args: Dict[str, str]) -> StartCommand:
@@ -1023,3 +1029,12 @@ class Machine:
     def run_callbacks(self) -> None:
         for callback in self.callbacks:
             callback()
+
+    def dump_efi_vars(self) -> None:
+        config = self.efi_vars.read_content()
+        if not config:
+            return
+
+        for vendor, variables in config.items():
+            for name, v in variables.items():
+                v.print()
