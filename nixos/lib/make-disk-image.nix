@@ -398,7 +398,11 @@ let format' = format; in let
       postVM = moveOrConvertImage + postVM;
       QEMU_OPTS =
         concatStringsSep " " (lib.optional useEFIBoot "-drive if=pflash,format=raw,unit=0,readonly=on,file=${efiFirmware}"
-        ++ lib.optional touchEFIVars "-drive if=pflash,format=raw,unit=1,file=$efiVars"
+        ++ lib.optionals touchEFIVars [
+          "-drive if=pflash,format=raw,unit=1,file=$efiVars"
+          # Ensure we require efi firmware to go through SMM to touch secureboot variables (once setup is done)
+          "-global driver=cfi.pflash01,property=secure,value=on"
+        ]
       );
       memSize = 1024;
     } ''
