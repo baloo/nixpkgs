@@ -22,6 +22,7 @@ python3Packages.buildPythonApplication rec {
     coreutils
     netpbm
     python3Packages.colorama
+    python3Packages.ovmfvartool
     python3Packages.ptpython
     qemu_pkg
     socat
