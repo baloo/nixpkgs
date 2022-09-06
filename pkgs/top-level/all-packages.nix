@@ -10852,6 +10852,11 @@ with pkgs;
 
   shiv = with python3Packages; toPythonApplication shiv;
 
+  shim = { vendorCertFile, defaultLoader ? null }:
+    callPackage ../tools/misc/shim {
+       inherit vendorCertFile defaultLoader;
+    };
+
   shocco = callPackage ../tools/text/shocco { };
 
   shopify-cli = callPackage ../development/web/shopify-cli { };
