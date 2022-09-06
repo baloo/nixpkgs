@@ -30,10 +30,11 @@ in
       machine.succeed("sbctl create-keys")
       machine.succeed("sbctl enroll-keys --yes-this-might-brick-my-machine")
       machine.shutdown()
+
       # Now we cannot reboot because we did not sign our boot files!
-      # machine.sleep(1)
-      # Test for Linux Boot Manager
-      # assert ('Not Found' in machine.get_screen_text())
+      machine.start()
+      # Test for EDK2 to reject the payload
+      machine.wait_for_console_text('Access Denied')
     '';
   };
 }
