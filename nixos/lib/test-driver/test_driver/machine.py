@@ -17,7 +17,7 @@ import threading
 import time
 
 from test_driver.logger import rootlog
-from test_driver.efi import EfiVars
+from test_driver.efi import EfiVars, EfiVariable
 
 CHAR_TO_KEY = {
     "A": "shift-a",
@@ -1038,3 +1038,9 @@ class Machine:
         for vendor, variables in config.items():
             for name, v in variables.items():
                 v.print()
+
+    def create_efi_vars(self) -> None:
+        self.efi_vars.create_empty()
+
+    def write_efi_vars(self, add: List[EfiVariable]) -> None:
+        self.efi_vars.write(add)

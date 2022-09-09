@@ -1,19 +1,35 @@
-from typing import Any, Dict, Optional, Type, TypeVar
+import io
+import binascii
+import os.path
+import uuid
+
+from typing import Any, Dict, Optional, Type, TypeVar, List
 from pathlib import Path
 from ovmfvartool import (
     FirmwareVolumeHeader,
     VariableStoreHeader,
     AuthenticatedVariable,
     resolveUUID,
+    UEFITime,
 )
 
 import test_driver.machine
 
 
-T = TypeVar("T", bound="EfiVariable")
+TEfiVariable = TypeVar("TEfiVariable", bound="EfiVariable")
 
 
 class EfiVariable(AuthenticatedVariable):
+    class Flags:
+        NON_VOLATILE = 0x1
+        BOOTSERVICE_ACCESS = 0x2
+        RUNTIME_ACCESS = 0x4
+        TIME_BASED_AUTHENTICATED_WRITE_ACCESS = 0x20
+
+    class State:
+        VAR_HEADER_VALID_ONLY = 0x7F ^ 0xFF
+        VAR_ADDED = 0x40
+
     volatile = False
     boot_access = False
     runtime_access = False
@@ -21,6 +37,39 @@ class EfiVariable(AuthenticatedVariable):
     authenticated_write_access = False
     time_based_authenticated_write_access = False
     append_write = False
+
+    def __init__(
+        self,
+        vendor_uuid: Optional[uuid.UUID] = None,
+        name: Optional[str] = None,
+        data: Optional[bytes] = None,
+        state: Optional[int] = None,
+        flags: Optional[int] = None,
+    ) -> None:
+        self.magic = 0x55AA
+        self.reserved1 = 0
+        self.monotonicCount = 0
+        self.timestamp = UEFITime()
+        self.pubKeyIdx = 0
+        self.state = 0
+        self.flags = 0
+
+        if state:
+            self.state = state ^ 0xFF
+
+        if flags:
+            self.flags = flags
+
+        if vendor_uuid:
+            self.vendorUUID = vendor_uuid
+
+        if name:
+            self.name = name
+            self.nameLen = len(name) * 2 + 2
+
+        if data:
+            self.data = data
+            self.dataLen = len(data)
 
     def _read_flags(self) -> None:
         if not (self.flags & 0x1):
@@ -41,7 +90,7 @@ class EfiVariable(AuthenticatedVariable):
         self.flags &= ~(0x1 | 0x2 | 0x4 | 0x8 | 0x10 | 0x20 | 0x40)
 
     @classmethod
-    def deserialize(cls: Type[T], f: Any) -> T:
+    def deserialize(cls: Type[TEfiVariable], f: Any) -> TEfiVariable:
         # pylint: disable=no-member
         # false positive https://github.com/PyCQA/pylint/issues/981
         ret = super(EfiVariable, cls).deserialize(f)
@@ -50,7 +99,9 @@ class EfiVariable(AuthenticatedVariable):
         return ret
 
     @classmethod
-    def deserializeFromDocument(cls: Type[T], vendorID: str, name: str, doc: Any) -> T:
+    def deserializeFromDocument(
+        cls: Type[TEfiVariable], vendorID: str, name: str, doc: Any
+    ) -> TEfiVariable:
         # pylint: disable=no-member
         # false positive https://github.com/PyCQA/pylint/issues/981
         ret = super(EfiVariable, cls).deserializeFromDocument(vendorID, name, doc)
@@ -79,6 +130,7 @@ class EfiVars:
         self._assert_stopped()
         try:
             with open(self.state_path, "rb") as f:
+                print("read data")
                 fvh = FirmwareVolumeHeader.deserialize(f)
                 vsh = VariableStoreHeader.deserialize(f)
                 variables: Dict[str, Dict[str, EfiVariable]] = {}
@@ -97,4 +149,86 @@ class EfiVars:
                 return variables
 
         except FileNotFoundError:
+            print("not found")
+            print(self.state_path)
             return None
+
+    def create_empty(self) -> None:
+        self._assert_stopped()
+
+        if os.path.exists(self.state_path):
+            raise Exception("OVMF variables store exists")
+
+        with open(self.state_path, "wb") as fo:
+            fm = io.BytesIO(b"\xFF" * (528 * 1024))
+            fm.write(FirmwareVolumeHeader.create().serialize())
+            fm.write(VariableStoreHeader.create().serialize())
+
+            fm.seek(0x41000)
+            fm.write(
+                binascii.unhexlify(
+                    b"2b29589e687c7d49a0ce6500fd9f1b952caf2c64feffffffe00f000000000000"
+                )
+            )
+            fm.seek(0)
+            fo.write(fm.read())
+
+            print("wrote empty vars")
+            print(self.state_path)
+
+    def write(self, add: List[EfiVariable]) -> None:
+        self._assert_stopped()
+
+        variables = self.read_content()
+        if not variables:
+            variables = {}
+
+        for var in add:
+            k = resolveUUID(var.vendorUUID)
+            variables.setdefault(k, {})
+            variables[k][var.name] = var
+
+        with open(self.state_path, "wb") as fo:
+            fm = io.BytesIO(b"\xFF" * (528 * 1024))
+            fm.write(FirmwareVolumeHeader.create().serialize())
+            fm.write(VariableStoreHeader.create().serialize())
+
+            for _, vendor in variables.items():
+                for _, v in vendor.items():
+                    fm.write(v.serialize())
+                    if fm.tell() % 4:
+                        fm.write(b"\xFF" * (4 - (fm.tell() % 4)))
+                    assert (fm.tell() % 4) == 0
+
+            fm.seek(0x41000)
+            fm.write(
+                binascii.unhexlify(
+                    b"2b29589e687c7d49a0ce6500fd9f1b952caf2c64feffffffe00f000000000000"
+                )
+            )
+            fm.seek(0)
+            fo.write(fm.read())
+
+            print("wrote vars")
+            print(self.state_path)
+
+
+class EfiGuid:
+    from ovmfvartool import (
+        gEfiSystemNvDataFvGuid,
+        gEfiAuthenticatedVariableGuid,
+        gEdkiiVarErrorFlagGuid,
+        gEfiMemoryTypeInformationGuid,
+        gMtcVendorGuid,
+        gEfiGlobalVariableGuid,
+        gEfiIScsiInitiatorNameProtocolGuid,
+        gEfiIp4Config2ProtocolGuid,
+        gEfiImageSecurityDatabaseGuid,
+        gEfiSecureBootEnableDisableGuid,
+        gEfiCustomModeEnableGuid,
+        gIScsiConfigGuid,
+        gEfiCertDbGuid,
+        gMicrosoftVendorGuid,
+        gEfiVendorKeysNvGuid,
+        mBmHardDriveBootVariableGuid,
+    )
