@@ -254,7 +254,7 @@ in
 
       toplevel = mkOption {
         type = types.package;
-        readOnly = true;
+        #readOnly = true;
         description = lib.mdDoc ''
           This option contains the store path that typically represents a NixOS system.
 
