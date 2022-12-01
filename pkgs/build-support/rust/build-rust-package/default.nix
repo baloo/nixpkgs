@@ -13,6 +13,7 @@
 , rustc
 , libiconv
 , windows
+, cargo-cyclonedx
 }:
 
 { name ? "${args.pname}-${args.version}"
@@ -151,5 +152,23 @@ stdenv.mkDerivation ((removeAttrs args [ "depsExtraArgs" "cargoUpdateHook" "carg
   meta = {
     # default to Rust's platforms
     platforms = rustc.meta.platforms;
+    sbom = stdenv.mkDerivation {
+      name = "${name}-sbom.json";
+      nativeBuildInputs = [
+        cargoSetupHook
+        cargoBuildHook
+        cargo-cyclonedx
+      ];
+      inherit src cargoDeps;
+
+      buildPhase = ''
+        eval "$cargoDepsHook"
+        # Ignore badly written licenses for now: https://github.com/CycloneDX/cyclonedx-rust-cargo/issues/321
+        cargo cyclonedx -vv -f json || :
+      '';
+      installPhase = ''
+        mv /build/source/bom.json $out
+      '';
+    };
   } // meta;
 })
