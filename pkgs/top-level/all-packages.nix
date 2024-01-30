@@ -26977,12 +26977,13 @@ with pkgs;
 
   rust-hypervisor-firmware = callPackage ../applications/virtualization/rust-hypervisor-firmware { };
 
-  OVMF = callPackage ../applications/virtualization/OVMF { };
-  OVMFFull = callPackage ../applications/virtualization/OVMF {
+  OVMF = python3Packages.callPackage ../applications/virtualization/OVMF { };
+  OVMFFull = python3Packages.callPackage ../applications/virtualization/OVMF {
     secureBoot = true;
     httpSupport = true;
     tpmSupport = true;
     tlsSupport = true;
+    msVarsTemplate = stdenv.isx86_64;
   };
 
   ops = callPackage ../applications/virtualization/ops { };
