@@ -39,6 +39,35 @@ in
     '';
   };
 
+  # Test that systemd-boot works with secure boot-enabled firmware
+  #
+  # Note that this does not turn secure boot on, it just tests the
+  # firmware image which is capable of secure boot.
+  secureBootEnabledFirmware = makeTest {
+    name = "systemd-boot-secure-boot-enabled";
+
+    nodes.machine = {
+      imports = [ common ];
+      virtualisation.useSecureBoot = true;
+    };
+
+    testScript = ''
+      machine.start()
+      machine.wait_for_unit("multi-user.target")
+
+      machine.succeed("test -e /boot/loader/entries/nixos-generation-1.conf")
+
+      # Ensure we actually booted using systemd-boot
+      # Magic number is the vendor UUID used by systemd-boot.
+      machine.succeed(
+          "test -e /sys/firmware/efi/efivars/LoaderEntrySelected-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f"
+      )
+
+      # "bootctl install" should have created an EFI entry
+      machine.succeed('efibootmgr | grep "Linux Boot Manager"')
+    '';
+  };
+
   # Check that specialisations create corresponding boot entries.
   specialisation = makeTest {
     name = "systemd-boot-specialisation";
