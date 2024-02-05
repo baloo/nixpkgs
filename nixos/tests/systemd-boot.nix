@@ -12,7 +12,7 @@ let
     virtualisation.useEFIBoot = true;
     boot.loader.systemd-boot.enable = true;
     boot.loader.efi.canTouchEfiVariables = true;
-    environment.systemPackages = [ pkgs.efibootmgr ];
+    environment.systemPackages = [ pkgs.efibootmgr pkgs.sbctl ];
   };
 in
 {
@@ -52,7 +52,7 @@ in
     };
 
     testScript = ''
-      machine.start()
+      machine.start(allow_reboot=True)
       machine.wait_for_unit("multi-user.target")
 
       machine.succeed("test -e /boot/loader/entries/nixos-generation-1.conf")
@@ -65,6 +65,19 @@ in
 
       # "bootctl install" should have created an EFI entry
       machine.succeed('efibootmgr | grep "Linux Boot Manager"')
+      print(machine.succeed('bootctl status'))
+      print(machine.succeed('sbctl status'))
+      machine.succeed('sbctl create-keys')
+      machine.succeed('sbctl enroll-keys --yes-this-might-brick-my-machine')
+      print(machine.succeed('find /boot -ls'))
+      print(machine.succeed('sbctl sign /boot/EFI/systemd/systemd-bootx64.efi'))
+      print(machine.succeed('sbctl sign /boot/EFI/BOOT/BOOTX64.EFI'))
+      print(machine.succeed('sbctl sign /boot/EFI/nixos/*bzImage.efi'))
+      print(machine.succeed('sbctl sign-all'))
+      print(machine.succeed('sbctl verify'))
+      print(machine.succeed('sbctl status'))
+      machine.reboot()
+      assert 'Secure Boot: enabled (user)' in machine.succeed('bootctl status')
     '';
   };
 

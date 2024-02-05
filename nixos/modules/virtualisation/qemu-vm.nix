@@ -1167,7 +1167,8 @@ in
         "-device ${cfg.tpm.deviceModel},tpmdev=tpm_dev_0"
       ])
       (mkIf (cfg.efi.OVMF.systemManagementModeRequired or false) [
-        "-machine" "q35,smm=on"
+        "-machine" "q35,accel=kvm,smm=on"
+        "-global" "driver=cfi.pflash01,property=secure,value=on"
       ])
     ];
 

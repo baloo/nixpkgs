@@ -537,7 +537,8 @@ let format' = format; in let
         ++ lib.optionals touchEFIVars [
           "-drive if=pflash,format=raw,unit=1,file=$efiVars"
         ] ++ lib.optionals (OVMF.systemManagementModeRequired or false) [
-          "-machine" "q35,smm=on"
+          "-machine" "q35,accel=kvm,smm=on"
+          "-global" "driver=cfi.pflash01,property=secure,value=on"
         ]
       );
       inherit memSize;
