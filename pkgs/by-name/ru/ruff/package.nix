@@ -10,6 +10,7 @@
   ruff-lsp,
   nix-update-script,
   versionCheckHook,
+  libiconv,
 }:
 
 python3Packages.buildPythonPackage rec {
@@ -48,9 +49,14 @@ python3Packages.buildPythonPackage rec {
       cargoCheckHook
     ]);
 
-  buildInputs = [
-    rust-jemalloc-sys
-  ] ++ lib.optionals stdenv.hostPlatform.isDarwin [ darwin.apple_sdk.frameworks.CoreServices ];
+  buildInputs =
+    [
+      rust-jemalloc-sys
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [
+      darwin.apple_sdk.frameworks.CoreServices
+      libiconv
+    ];
 
   outputs = [
     "out"
