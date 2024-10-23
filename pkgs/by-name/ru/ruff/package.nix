@@ -105,11 +105,10 @@ python3Packages.buildPythonPackage rec {
     "--skip=unix::symlink_inside_workspace"
   ];
 
-  nativeInstallCheckInputs = [
+  nativeCheckInputs = [
     versionCheckHook
   ];
   versionCheckProgramArg = [ "--version" ];
-  doInstallCheck = true;
 
   pythonImportsCheck = [ "ruff" ];
 
