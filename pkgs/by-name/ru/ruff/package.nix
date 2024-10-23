@@ -45,6 +45,7 @@ python3Packages.buildPythonPackage rec {
     ++ (with rustPlatform; [
       cargoSetupHook
       maturinBuildHook
+      cargoCheckHook
     ]);
 
   buildInputs = [
@@ -74,6 +75,12 @@ python3Packages.buildPythonPackage rec {
     };
     updateScript = nix-update-script { };
   };
+
+  # Run cargo tests
+  cargoCheckType = "debug";
+  postInstallCheck = ''
+    cargoCheckHook
+  '';
 
   # Failing on darwin for an unclear reason.
   # According to the maintainers, those tests are from an experimental crate that isn't actually
